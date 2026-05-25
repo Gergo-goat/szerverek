@@ -146,8 +146,87 @@ Security Filtering:
   → Távolítsd el: Authenticated Users
   → Add: Nappali képzés
   → Add: Esti képzés
+
 Házirendek frissítése:
 powershell# PowerShell / parancssor
 gpupdate /force
 
 Képernyőkép kell: GPO részletei, a Hallgatók OU-hoz való hivatkozás, a gpupdate /force kimenet.
+
+
+
+LINUX:
+1. Csoport és felhasználó létrehozása
+bash# titkarsag csoport létrehozása
+sudo groupadd titkarsag
+
+# titkar felhasználó létrehozása, elsődleges csoport: titkarsag
+sudo useradd -m -g titkarsag titkar
+
+# jelszó beállítása
+sudo passwd titkar
+
+# ellenőrzés
+id titkar
+
+2. Partíció eszköznevének meghatározása
+bash# /home partíció eszköznevének megkeresése:
+df -h /home
+
+
+A kimenetből leolvasható pl.: /dev/sda2 vagy /dev/sdb1
+bash# Hány sorban szerepel ez a partíció a syslogban?
+# Ha pl. az eszköznév /dev/sda2:
+grep -c "sda2" /var/log/syslog
+
+# Ha syslog nem létezik (Ubuntu 22+):
+grep -c "sda2" /var/log/kern.log
+
+3. DHCP szerver telepítése és konfigurálása
+bash# Jelenlegi IP-cím meghatározása:
+ip a
+
+# DHCP szerver telepítése
+sudo apt update
+sudo apt install isc-dhcp-server -y
+Konfiguráció szerkesztése:
+sudo nano /etc/dhcp/dhcpd.conf
+Tartalom (ha pl. a szerver IP-je 192.168.1.x hálózatban van):
+subnet 192.168.1.0 netmask 255.255.255.0 {
+    range 192.168.1.100 192.168.1.114;
+    option domain-name-servers 8.8.8.8;
+}
+
+# Rögzített IP a MAC-hez – utolsó használható cím a /24-ben: .254
+host fixgep {
+    hardware ethernet 46:6C:61:73:68:79;
+    fixed-address 192.168.1.254;
+}
+
+A range 100-tól 15 cím: .100 – .114
+
+bash# Interfész megadása (amelyiken kiszolgál)
+sudo nano /etc/default/isc-dhcp-server
+# INTERFACESv4="ens33"   ← a saját interfész neve
+
+# Szolgáltatás indítása
+sudo systemctl restart isc-dhcp-server
+sudo systemctl status isc-dhcp-server
+
+4. Webszerver + userdir modul (Apache)
+bash# Apache telepítése
+sudo apt install apache2 -y
+
+# Userdir modul engedélyezése (~felhasználó elérés)
+sudo a2enmod userdir
+
+# Apache újraindítása
+sudo systemctl restart apache2
+
+# titkar felhasználónak html mappa létrehozása
+sudo mkdir -p /home/titkar/public_html
+sudo chmod 755 /home/titkar
+sudo chmod 755 /home/titkar/public_html
+
+# Teszt oldal
+echo "<h1>Titkar oldala</h1>" | sudo tee /home/titkar/
